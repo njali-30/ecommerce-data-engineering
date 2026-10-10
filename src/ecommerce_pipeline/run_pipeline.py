@@ -15,7 +15,7 @@ def main() -> None:
 
     for name, count in results.items():
         status = "PASS" if count == 0 else "FAIL"
-        print(f"{status}: {name} — {count} issue(s)")
+        print(f"{status}: {name} - {count} issue(s)")
 
     if failed_checks:
         raise SystemExit(

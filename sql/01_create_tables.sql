@@ -6,9 +6,14 @@
 
 CREATE TABLE IF NOT EXISTS customers (
     customer_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    first_name VARCHAR(100) NOT NULL
+    CHECK (LENGTH(TRIM(first_name)) > 0),
+
+    last_name VARCHAR(100) NOT NULL
+    CHECK (LENGTH(TRIM(last_name)) > 0),
+
+    email VARCHAR(255) NOT NULL UNIQUE
+    CHECK (LENGTH(TRIM(email)) > 0),
     city VARCHAR(100),
     country VARCHAR(100),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
