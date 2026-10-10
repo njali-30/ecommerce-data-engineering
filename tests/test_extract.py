@@ -90,3 +90,49 @@ def test_category_revenue_report(category_revenue):
     assert category_revenue["category_name"].is_unique
     assert category_revenue["units_sold"].gt(0).all()
     assert category_revenue["gross_revenue"].ge(0).all()
+
+def test_monthly_sales_revenue_matches_expected_total(monthly_sales):
+    expected_total = 36673.00
+
+    actual_total = round(monthly_sales["gross_revenue"].sum(), 2)
+
+    assert actual_total == expected_total
+
+def test_category_revenue_matches_expected_results(category_revenue):
+    expected = {
+        "Electronics": 14691.00,
+        "Home & Kitchen": 9592.00,
+        "Clothing": 7393.00,
+        "Books": 4997.00,
+    }
+
+    actual = dict(
+        zip(category_revenue["category_name"], category_revenue["gross_revenue"])
+    )
+
+    assert actual == expected
+    assert round(category_revenue["gross_revenue"].sum(), 2) == 36673.00
+
+
+def test_top_products_match_expected_ranking(top_products):
+    expected = [
+        ("Water Bottle", 6, 2994.00),
+        ("Cotton T-Shirt", 5, 2995.00),
+        ("USB-C Charger", 4, 3596.00),
+        ("SQL for Beginners", 4, 2600.00),
+        ("Wireless Headphones", 3, 7497.00),
+    ]
+
+    actual = list(
+        top_products[
+            ["product_name", "units_sold", "gross_sales"]
+        ].itertuples(index=False, name=None)
+    )
+
+    actual = [
+        (name, int(units), round(float(sales), 2))
+        for name, units, sales in actual
+    ]
+
+    assert actual == expected
+
