@@ -73,10 +73,13 @@ def extract_analytics() -> None:
             output_path = OUTPUT_DIR / f"{report_name}.csv"
             dataframe.to_csv(output_path, index=False)
 
-            print(
-                f"Exported {len(dataframe)} rows to "
-                f"{output_path.relative_to(PROJECT_ROOT)}"
-            )
+            try:
+                display_path = output_path.relative_to(PROJECT_ROOT)
+            except ValueError:
+                # Supports test output directories outside the project.
+                display_path = output_path
+
+            print(f"Exported {len(dataframe)} rows to {display_path}")
     finally:
         engine.dispose()
 
