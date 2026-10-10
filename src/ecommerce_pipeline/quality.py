@@ -1,7 +1,12 @@
 
+import logging
+
 from sqlalchemy import text
 
 from ecommerce_pipeline.db import create_db_engine
+
+
+logger = logging.getLogger(__name__)
 
 
 QUALITY_CHECKS = {
@@ -32,29 +37,66 @@ QUALITY_CHECKS = {
 
 def run_quality_checks() -> dict[str, int]:
     """Run database quality checks and return issue counts."""
+    logger.info("Starting data quality checks")
+
     engine = create_db_engine()
-    results = {}
+    results: dict[str, int] = {}
 
     try:
         with engine.connect() as connection:
             for check_name, query in QUALITY_CHECKS.items():
-                results[check_name] = connection.execute(
+                logger.info("Running quality check: %s", check_name)
+
+                issue_count = connection.execute(
                     text(query)
                 ).scalar_one()
+
+                results[check_name] = issue_count
+
+                if issue_count == 0:
+                    logger.info(
+                        "PASS: %s - %d issue(s)",
+                        check_name,
+                        issue_count,
+                    )
+                else:
+                    logger.error(
+                        "FAIL: %s - %d issue(s)",
+                        check_name,
+                        issue_count,
+                    )
+
+        failed_checks = sum(
+            1 for count in results.values() if count > 0
+        )
+
+        logger.info(
+            "Data quality checks completed: %d passed, %d failed",
+            len(results) - failed_checks,
+            failed_checks,
+        )
+
+        return results
+
+    except Exception:
+        logger.exception("Data quality checks failed to execute")
+        raise
+
     finally:
         engine.dispose()
-
-    return results
+        logger.debug("Database engine disposed")
 
 
 if __name__ == "__main__":
-    results = run_quality_checks()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 
-    for check_name, issue_count in results.items():
-        status = "PASS" if issue_count == 0 else "FAIL"
-        print(f"{status}: {check_name} — {issue_count} issue(s)")
+    results = run_quality_checks()
 
     if any(count > 0 for count in results.values()):
         raise SystemExit("Data quality checks failed.")
-    print("All data quality checks passed.")
 
+    logger.info("All data quality checks passed")
