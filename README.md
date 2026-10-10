@@ -11,6 +11,7 @@ A beginner-friendly Data Engineering project that uses PostgreSQL, Python, Panda
 - Export analytical datasets as CSV files.
 - Run data quality checks before generating reports.
 - Automate the workflow through a single pipeline entry point.
+- Test analytics logic and database integration using pytest.
 
 ## Architecture
 
@@ -18,8 +19,8 @@ A beginner-friendly Data Engineering project that uses PostgreSQL, Python, Panda
 Sample E-Commerce Data
           |
           v
-    PostgreSQL
- (5 relational tables)
+     PostgreSQL
+   (5 relational tables)
           |
           v
   Data Quality Checks
@@ -28,10 +29,10 @@ Sample E-Commerce Data
   Python + SQLAlchemy
           |
           v
-   SQL Analytics Queries
+  SQL Analytics Queries
           |
           v
-     Pandas DataFrames
+    Pandas DataFrames
           |
           v
       CSV Reports
@@ -41,7 +42,7 @@ Sample E-Commerce Data
 
 - **Database:** PostgreSQL
 - **Programming:** Python
-- **Data processing:** Pandas
+- **Data processing:** Pandas, NumPy
 - **Database connectivity:** SQLAlchemy, psycopg
 - **Query language:** SQL
 - **Testing:** pytest
@@ -62,7 +63,7 @@ The schema uses primary keys, foreign keys, uniqueness constraints, validation c
 
 ## Analytics Reports
 
-The pipeline generates three CSV reports:
+The pipeline generates three CSV reports in the `outputs/` directory.
 
 | Report | Purpose |
 |---|---|
@@ -89,11 +90,13 @@ If a check detects an issue, the combined pipeline stops before exporting report
 
 ```text
 ecommerce-data-engineering/
-├── data/
-│   ├── raw/
-│   └── processed/
 ├── docs/
+│   ├── architecture.md
+│   └── data_dictionary.md
 ├── outputs/
+│   ├── monthly_sales.csv
+│   ├── top_products.csv
+│   └── category_revenue.csv
 ├── sql/
 │   ├── 01_create_tables.sql
 │   ├── 02_seed_data.sql
@@ -107,7 +110,14 @@ ecommerce-data-engineering/
 │       ├── quality.py
 │       └── run_pipeline.py
 ├── tests/
-│   └── test_extract.py
+│   ├── integration/
+│   │   └── test_postgres_integration.py
+│   ├── test_extract.py
+│   ├── test_pipeline.py
+│   └── test_quality.py
+├── data/
+│   ├── raw/
+│   └── processed/
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
@@ -125,14 +135,12 @@ ecommerce-data-engineering/
 
 ### 1. Clone the repository
 
-```bash
+```powershell
 git clone https://github.com/njali-30/ecommerce-data-engineering.git
 cd ecommerce-data-engineering
 ```
 
 ### 2. Create and activate a virtual environment
-
-Windows PowerShell:
 
 ```powershell
 python -m venv .venv
@@ -155,9 +163,9 @@ Copy-Item .env.example .env
 
 Update `.env` with your PostgreSQL credentials. Never commit this file or share its password.
 
-### 5. Create and populate the database
+### 5. Create and populate the main database
 
-Create a PostgreSQL database named `ecommerce`, then run these commands from the project root:
+Create a PostgreSQL database named `ecommerce`. Then run these commands from the project root:
 
 ```powershell
 psql -U postgres -h localhost -p 5432 -d ecommerce -v ON_ERROR_STOP=1 -f .\sql\01_create_tables.sql
@@ -168,8 +176,6 @@ The seed script is intended for an empty schema. Do not run it repeatedly agains
 
 ### 6. Run the pipeline
 
-In PowerShell:
-
 ```powershell
 $env:PYTHONPATH = (Resolve-Path .\src).Path
 python -m ecommerce_pipeline.run_pipeline
@@ -177,25 +183,77 @@ python -m ecommerce_pipeline.run_pipeline
 
 Successful execution runs the quality checks and exports the CSV reports to `outputs/`.
 
-### 7. Run tests
+## Testing
+
+The project includes unit tests and PostgreSQL integration tests.
+
+### Run unit tests
+
+With the virtual environment activated, run:
+
+```powershell
+$env:PYTHONPATH = (Resolve-Path .\src).Path
+Remove-Item Env:RUN_DB_INTEGRATION -ErrorAction SilentlyContinue
+python -m pytest -v
+```
+
+With `RUN_DB_INTEGRATION` unset, the PostgreSQL integration tests are skipped. The unit tests validate analytics logic, expected report results, and pipeline behavior.
+
+### Set up the integration-test database
+
+Integration tests use a separate database named `ecommerce_test` so they do not run against the main `ecommerce` database.
+
+Create the test database once:
+
+```powershell
+psql -U postgres -h localhost -p 5432 -d postgres -c "CREATE DATABASE ecommerce_test;"
+```
+
+Initialize its schema and sample data:
+
+```powershell
+psql -U postgres -h localhost -p 5432 -d ecommerce_test -v ON_ERROR_STOP=1 -f .\sql\01_create_tables.sql
+psql -U postgres -h localhost -p 5432 -d ecommerce_test -v ON_ERROR_STOP=1 -f .\sql\02_seed_data.sql
+```
+
+If `ecommerce_test` already exists and is correctly initialized, do not create or seed it again.
+
+### Run PostgreSQL integration tests
+
+Enable integration tests in the current PowerShell session:
+
+```powershell
+$env:RUN_DB_INTEGRATION = "1"
+python -m pytest tests/integration/test_postgres_integration.py -v
+```
+
+The integration tests verify that:
+
+- The connection targets `ecommerce_test`.
+- Real database quality checks pass.
+- Analytics extraction produces the expected reports and totals.
+
+The tests direct their CSV output to a temporary directory instead of overwriting the project's normal reports.
+
+Run the complete suite with integration tests enabled:
 
 ```powershell
 python -m pytest -v
 ```
 
-Run the pipeline before the tests because the current tests validate the generated CSV files.
+**Important:** Only enable integration tests when the configured PostgreSQL credentials can access `ecommerce_test`. The tests explicitly verify the database name before running database checks.
 
 ## Current Limitations
 
 - Uses sample e-commerce data rather than a live production source.
 - Runs locally against PostgreSQL rather than a cloud warehouse.
 - Executes the pipeline manually; scheduled orchestration is not implemented.
-- Tests currently validate generated output files rather than testing every database operation independently.
+- Does not yet implement incremental data loading or production-scale monitoring.
 
 ## Future Improvements
 
 - Add incremental data loading.
-- Add more comprehensive automated tests.
+- Expand automated testing and edge-case coverage.
 - Add structured logging and exception handling.
 - Add a repeatable database reset and seed workflow.
 - Add orchestration and cloud deployment.
