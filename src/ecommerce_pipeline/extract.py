@@ -1,3 +1,4 @@
+import logging
 
 from pathlib import Path
 
@@ -6,7 +7,7 @@ from sqlalchemy import text
 
 from ecommerce_pipeline.db import create_db_engine
 
-
+logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 
@@ -57,13 +58,17 @@ QUERIES = {
 }
 
 
+
 def extract_analytics() -> None:
     """Run analytics queries and save their results as CSV files."""
+    logger.info("Starting analytics extraction")
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     engine = create_db_engine()
 
     try:
         for report_name, query in QUERIES.items():
+            logger.info("Running analytics query: %s", report_name)
+
             with engine.connect() as connection:
                 dataframe = pd.read_sql(
                     text(query),
@@ -79,9 +84,21 @@ def extract_analytics() -> None:
                 # Supports test output directories outside the project.
                 display_path = output_path
 
-            print(f"Exported {len(dataframe)} rows to {display_path}")
+            logger.info(
+                "Exported %d rows to %s",
+                len(dataframe),
+                display_path,
+            )
+
+        logger.info("Analytics extraction completed successfully")
+
+    except Exception:
+        logger.exception("Analytics extraction failed")
+        raise
+
     finally:
         engine.dispose()
+
 
 
 if __name__ == "__main__":

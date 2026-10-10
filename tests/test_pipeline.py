@@ -1,6 +1,4 @@
 
-import pytest
-
 from ecommerce_pipeline import run_pipeline
 
 
@@ -30,14 +28,18 @@ def test_pipeline_stops_when_quality_check_fails(monkeypatch):
         fake_extract_analytics,
     )
 
-    with pytest.raises(SystemExit, match="data quality checks failed"):
+    try:
         run_pipeline.main()
+    except SystemExit as error:
+        assert "data quality checks failed" in str(error)
+    else:
+        raise AssertionError("Pipeline should stop when quality checks fail")
 
     assert extraction_called is False
 
 
 def test_pipeline_runs_extraction_when_quality_checks_pass(
-    monkeypatch, capsys
+    monkeypatch, caplog
 ):
     extraction_called = False
 
@@ -64,9 +66,8 @@ def test_pipeline_runs_extraction_when_quality_checks_pass(
         fake_extract_analytics,
     )
 
-    run_pipeline.main()
-
-    captured = capsys.readouterr()
+    with caplog.at_level("INFO"):
+        run_pipeline.main()
 
     assert extraction_called is True
-    assert "Pipeline completed successfully." in captured.out
+    assert "Pipeline completed successfully" in caplog.text
