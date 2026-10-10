@@ -6,6 +6,9 @@ import pytest
 
 from ecommerce_pipeline.extract import QUERIES
 from ecommerce_pipeline.quality import QUALITY_CHECKS
+from unittest.mock import MagicMock
+from sqlalchemy import text
+from ecommerce_pipeline import extract
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -135,4 +138,24 @@ def test_top_products_match_expected_ranking(top_products):
     ]
 
     assert actual == expected
+
+
+def test_extract_disposes_engine_when_query_fails(monkeypatch, tmp_path):
+    from ecommerce_pipeline import extract
+
+    engine = MagicMock()
+    monkeypatch.setattr(extract, "create_db_engine", lambda: engine)
+    monkeypatch.setattr(extract, "OUTPUT_DIR", tmp_path)
+
+    monkeypatch.setattr(
+        extract.pd,
+        "read_sql",
+        MagicMock(side_effect=RuntimeError("Database query failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="Database query failed"):
+        extract.extract_analytics()
+
+    engine.dispose.assert_called_once()
+
 
